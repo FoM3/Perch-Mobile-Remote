@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Perch Test Client</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #101418; color: #e6e9ec; margin: 0; padding: 16px; }
+  video { width: 100%; max-height: 70vh; background: #000; border-radius: 8px; }
+  #log { font-family: monospace; font-size: 12px; white-space: pre-wrap; color: #8a94a0; margin-top: 10px; }
+  .ok { color: #4cc38a; }
+  button { background: #2f81f7; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; margin: 8px 4px 8px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<h2>Perch Test Client <span id="state"></span></h2>
+<video id="video" autoplay muted playsinline></video>
+<div>
+  <button id="click-test">Send test click</button>
+  <button id="text-test">Send test text</button>
+  <button id="move-test">Send 100 pointer moves</button>
+</div>
+<div id="log"></div>
+<script>
+// Stand-in for the Android app: same signaling and WebRTC flow, used to verify the desktop host
+const HOST = "ws://127.0.0.1:43120";
+const logEl = document.getElementById("log");
+const stateEl = document.getElementById("state");
+let sessionId = null;
+let reliable = null;
+let pointer = null;
+
+function log(message, ok) {
+  console.log(message);
+  const line = document.createElement("div");
+  line.textContent = new Date().toISOString().slice(11, 19) + " " + message;
+  if (ok) line.className = "ok";
+  logEl.prepend(line);
+}
+
+const ws = new WebSocket(HOST);
+const peer = new RTCPeerConnection({ iceServers: [] });
+
+peer.ontrack = (event) => {
+  document.getElementById("video").srcObject = event.streams[0];
+  log("video track received", true);
+};
+
+peer.ondatachannel = (event) => {
+  const channel = event.channel;
+  channel.onopen = () => {
+    log("data channel open: " + channel.label, true);
+    if (channel.label === "reliable-control") reliable = channel;
+    if (channel.label === "pointer-control") pointer = channel;
+  };
+};
+
+peer.onicecandidate = (event) => {
+  if (event.candidate && sessionId) {
+    ws.send(JSON.stringify({
+      version: 1, sessionId, type: "webrtc.ice",
+      payload: {
+        candidate: event.candidate.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex,
+      },
+    }));
+  }
+};
+
+peer.onconnectionstatechange = () => {
+  stateEl.textContent = "· " + peer.connectionState;
+  log("peer connection: " + peer.connectionState, peer.connectionState === "connected");
+};
+
+ws.onopen = () => {
+  const pin = window.prompt("Enter the pairing PIN shown in the Perch agent window:") || "";
+  log("signaling connected, authenticating");
+  ws.send(JSON.stringify({
+    version: 1, type: "auth.request",
+    payload: { deviceId: "test-client", deviceName: "Test Client", secret: pin },
+  }));
+};
+
+ws.onmessage = async (event) => {
+  const message = JSON.parse(event.data);
+  if (message.type === "auth.result" && message.payload.ok) {
+    sessionId = message.payload.sessionId;
+    log("authenticated, session " + sessionId, true);
+    setInterval(() => {
+      if (sessionId) ws.send(JSON.stringify({
+        version: 1, sessionId, type: "heartbeat", payload: { timestamp: Date.now() },
+      }));
+    }, 5000);
+  } else if (message.type === "webrtc.offer") {
+    log("offer received, answering");
+    await peer.setRemoteDescription({ type: "offer", sdp: message.payload.sdp });
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    ws.send(JSON.stringify({
+      version: 1, sessionId, type: "webrtc.answer", payload: { sdp: answer.sdp },
+    }));
+  } else if (message.type === "webrtc.ice") {
+    await peer.addIceCandidate({
+      candidate: message.payload.candidate,
+      sdpMid: message.payload.sdpMid ?? undefined,
+      sdpMLineIndex: message.payload.sdpMLineIndex ?? undefined,
+    });
+  } else if (message.type === "error") {
+    log("error: " + message.payload.code + " " + message.payload.message);
+  } else if (message.type === "session.ended") {
+    log("session ended: " + message.payload.reason);
+  }
+};
+
+ws.onclose = () => log("signaling closed");
+ws.onerror = () => log("signaling error (is the agent running?)");
+
+document.getElementById("click-test").onclick = () => {
+  if (!reliable) return log("reliable channel not open");
+  reliable.send(JSON.stringify({
+    version: 1, sessionId, type: "pointer.click",
+    payload: { button: "left", x: 0.5, y: 0.5 },
+  }));
+  log("sent pointer.click", true);
+};
+
+document.getElementById("text-test").onclick = () => {
+  if (!reliable) return log("reliable channel not open");
+  reliable.send(JSON.stringify({
+    version: 1, sessionId, type: "keyboard.text",
+    payload: { text: "hello from test client" },
+  }));
+  log("sent keyboard.text", true);
+};
+
+document.getElementById("move-test").onclick = () => {
+  if (!pointer) return log("pointer channel not open");
+  for (let i = 0; i < 100; i++) {
+    pointer.send(JSON.stringify({
+      version: 1, sessionId, type: "pointer.absolute",
+      payload: { x: Math.min(1, i / 100), y: 0.5 },
+    }));
+  }
+  log("sent 100 pointer.absolute", true);
+};
+</script>
+</body>
+</html>

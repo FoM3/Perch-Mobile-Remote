@@ -1,0 +1,15 @@
+{
+  "name": "mobile-remote",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:desktop": "pnpm --filter perch-agent dev",
+    "build:desktop": "pnpm --filter perch-agent build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,123 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #101418;
+  color: #e6e9ec;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.header h1 {
+  font-size: 18px;
+}
+
+.header .version {
+  color: #8a94a0;
+  font-size: 12px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.status-card {
+  background: #1a2027;
+  border: 1px solid #29323c;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.status-card .label {
+  color: #8a94a0;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.status-card .value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.value.pin {
+  color: #f0883e;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 4px;
+}
+
+.value.ok {
+  color: #4cc38a;
+}
+
+.value.off {
+  color: #f0883e;
+}
+
+.preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preview video {
+  width: 100%;
+  flex: 1;
+  min-height: 320px;
+  background: #000;
+  border-radius: 8px;
+  border: 1px solid #29323c;
+  object-fit: contain;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+button {
+  background: #2f81f7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #29323c;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+label.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #c7ced6;
+  cursor: pointer;
+}

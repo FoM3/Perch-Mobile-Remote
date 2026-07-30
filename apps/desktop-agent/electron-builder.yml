@@ -1,0 +1,32 @@
+appId: com.perch.app
+productName: Perch
+# pnpm's hoisted layout hides the electron version from auto-detection; pin it
+electronVersion: 35.7.5
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+# The native input helper + icons ship alongside the app, resolved via resourcesPath
+extraResources:
+  - from: resources/input-helper.exe
+    to: input-helper.exe
+  - from: resources/icon.ico
+    to: icon.ico
+  - from: resources/tray.png
+    to: tray.png
+win:
+  target:
+    - nsis
+    - portable
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Perch
+portable:
+  artifactName: Perch-${version}-portable.exe

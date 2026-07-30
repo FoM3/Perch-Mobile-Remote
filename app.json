@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Perch",
+    "slug": "perch",
+    "extra": {
+      "router": {
+        "root": "apps/mobile/app"
+      }
+    }
+  }
+}
