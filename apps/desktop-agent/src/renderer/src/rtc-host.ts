@@ -73,8 +73,7 @@ function ensurePipeline(): void {
   }
 }
 
-// Draw either the full frame or the cropped region into the canvas at native
-// resolution, so the encoded stream is sharp for whatever the phone is viewing.
+// Draw the full frame or cropped region at native resolution so the encoded stream stays sharp.
 function renderLoop(ts: number): void {
   rafId = requestAnimationFrame(renderLoop);
   if (ts - lastDraw < DRAW_INTERVAL_MS) return;

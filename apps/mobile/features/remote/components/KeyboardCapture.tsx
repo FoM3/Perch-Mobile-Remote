@@ -6,8 +6,7 @@ interface KeyboardCaptureProps {
   input: InputSender | null;
 }
 
-// Visible compose bar: shows what you type (the laptop field is hidden behind the
-// keyboard) while mirroring each edit to the desktop as text / backspace / enter.
+// Visible compose bar: shows what you type while mirroring each edit to the desktop as text / backspace / enter.
 export function KeyboardCapture({ input }: KeyboardCaptureProps) {
   const [text, setText] = useState("");
   const prev = useRef("");

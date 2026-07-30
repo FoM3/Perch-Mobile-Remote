@@ -1,102 +1,254 @@
 # Perch
 
-View and control the Windows desktop already running on your laptop, from an Android phone, over your local Wi-Fi. It streams the live screen to the phone with WebRTC and injects your taps, drags, scrolls, and typing back into Windows. Nothing goes over the internet and it uses no mobile data: the phone and laptop talk directly across your LAN.
+Perch lets you view and control a Windows desktop from an Android phone over a local network. It streams the selected monitor with WebRTC and sends touch, pointer, scroll, keyboard, and shortcut input back to Windows.
 
-Built primarily to keep using an existing VS Code session (including the Codex / Claude extensions) from the couch, but it controls the whole desktop, not just one window.
+It was built for continuing an existing desktop workflow (such as a VS Code, Codex, or Claude session) from elsewhere in the house. Perch controls the whole desktop rather than a single application.
 
-> **Status:** working local MVP. Streaming, full input control, pinch-zoom, on-screen keyboard, multi-monitor switching, and PIN-based pairing all work; the Android app is release-signed and the desktop app is packaged as `Perch.exe`. Internet access (Tailscale), audio, and clipboard sync are not built yet: see [Roadmap](#roadmap).
+> **Status:** functional local-network MVP. Streaming, trackpad and direct-touch input, pinch zoom, keyboard forwarding, shortcuts, live monitor switching, PIN authentication, Android release builds, and portable Windows packaging are implemented.
+
+## Features
+
+- Direct LAN communication with no hosted relay or cloud account.
+- WebRTC desktop streaming at up to 1080p and approximately 15 fps.
+- Trackpad and direct-touch control modes.
+- Tap, double-tap, long-press, drag, and two-finger scrolling.
+- Pinch-to-zoom up to 5x, panning, and zoom reset.
+- Android keyboard forwarding with a visible compose bar.
+- Shortcut controls for Esc, Tab, Enter, arrows, Ctrl+P, Ctrl+Shift+P, and more.
+- Multiple-monitor discovery and switching, including display changes during a session.
+- Six-digit PIN authentication before a controller can start or replace a session.
+- Shared Zod validation for signaling and control messages.
+- Separate reliable and low-latency WebRTC data channels.
+- Native Windows input injection through `SendInput`.
+- Portable Windows packaging through Electron Builder.
+
+## Supported platforms
+
+| Component | Platform |
+|---|---|
+| Desktop agent | Windows 10 or Windows 11 |
+| Mobile controller | Android 7.0 or newer (API 24+) |
+| Network | Trusted local Wi-Fi or Ethernet LAN |
+
+iOS, browser control, internet relaying, and macOS/Linux desktop hosts are not currently supported.
 
 ## Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** — install the app and use it. Start here if the laptop is already set up.
-- **[Build & Developer Guide](docs/BUILD.md)** — build everything from source, architecture, and troubleshooting.
+- [User Guide](docs/USER_GUIDE.md): installation, pairing, controls, and troubleshooting.
+- [Build and Developer Guide](docs/BUILD.md): prerequisites, builds, packaging, architecture, and troubleshooting.
+- [Implementation Plan](PLAN.md): original design and longer-term direction.
 
-## What it does
-
-- Streams your laptop's monitor to the phone (1080p, ~15 fps, hardware-encoded where available).
-- **Trackpad mode**: one finger moves the cursor, tap to click, long-press to right-click.
-- **Touch mode**: tap lands a click exactly where you touch on the screen.
-- **Two-finger scroll**, **pinch-to-zoom** (up to 5×), and **pan** while zoomed.
-- **On-screen keyboard** with a compose bar so you can see what you type, plus a shortcut bar (Esc, Tab, Ctrl+P, arrows, etc.).
-- **Multi-monitor**: pick which screen to view and control, with clicks mapped correctly to each display.
-
-## How it works (in one picture)
+## Architecture
 
 ```text
-┌─────────────────────────────┐        Wi-Fi / LAN         ┌────────────────────────┐
-│ Windows laptop              │      (no internet)         │ Android phone          │
-│                             │                            │                        │
-│  Desktop agent (Electron)   │  ── WebRTC video ───────▶  │  Live desktop view     │
-│   • captures the monitor    │                            │  • pinch / pan / zoom  │
-│   • WebRTC host             │  ◀── control data channel ─│  • touch + keyboard    │
-│   • input-helper.exe        │      (taps, keys, scroll)  │                        │
-│      → Windows SendInput    │                            │                        │
-│  Signaling: ws://…:43120    │  ◀── WebSocket signaling ──│                        │
-└─────────────────────────────┘                            └────────────────────────┘
++----------------------------+          Local network          +-----------------------+
+| Windows computer           |                                 | Android phone         |
+|                            |  WebRTC video ----------------> |                       |
+| Perch desktop agent        |                                 | Perch mobile app      |
+| - Electron main process    | <------- control channels ----- | - Remote video        |
+| - Desktop capture          |                                 | - Touch/trackpad       |
+| - WebRTC host              | <---- WebSocket signaling ----> | - Keyboard/shortcuts  |
+| - input-helper.exe         |                                 | - Monitor selector    |
+|      -> Windows SendInput  |                                 |                       |
++----------------------------+                                 +-----------------------+
 ```
 
-The desktop agent runs a small WebSocket **signaling** server on port `43120` (setup only), then opens a direct **WebRTC** peer connection for the video and a data channel for input. A tiny native helper (`input-helper.exe`) turns validated control messages into real Windows input via `SendInput`.
+The desktop agent listens on TCP port `43120`. The phone authenticates with the PIN displayed by the agent. The desktop then captures a monitor, creates a WebRTC offer, and exchanges SDP and ICE data with the phone over WebSocket signaling. Video travels to the phone over WebRTC, while input returns over two data channels:
 
-## Where is the desktop app?
+- `reliable-control` carries clicks, buttons, keyboard input, shortcuts, final scroll deltas, and capture commands.
+- `pointer-control` is unordered with no retransmission and carries high-frequency pointer and intermediate scroll movement.
 
-After `pnpm dist` (see the [Build Guide](docs/BUILD.md)), the runnable app is at:
+Every control message includes the active session ID. Shared Zod schemas validate messages before they reach the native Windows input helper.
+
+## Quick start
+
+### Start the Windows agent
+
+Run `Perch.exe` from the complete portable `win-unpacked` directory, or start from source:
+
+```powershell
+pnpm install
+pnpm dev:desktop
+```
+
+The agent displays its listening status, pairing PIN, controller state, keep-awake setting, and a local capture preview.
+
+### Allow the LAN connection
+
+Run once from an Administrator PowerShell:
+
+```powershell
+New-NetFirewallRule `
+  -DisplayName "Perch Agent" `
+  -Direction Inbound `
+  -LocalPort 43120 `
+  -Protocol TCP `
+  -Action Allow
+```
+
+Scope the rule to your private network or local subnet when possible.
+
+### Connect from Android
+
+1. Install an APK from a trusted release or local build.
+2. Put the phone and computer on the same trusted network.
+3. Open Perch and enter the computer's IPv4 address, port `43120`, and the displayed PIN.
+4. Tap **Connect**.
+
+Run `ipconfig` on Windows to find the active adapter's IPv4 address.
+
+## Controls
+
+| Gesture | Trackpad mode | Touch mode |
+|---|---|---|
+| One-finger drag | Move cursor relatively | Move cursor to touched position |
+| Tap | Left-click at cursor | Left-click touched position |
+| Double-tap | Double-click at cursor | Double-click touched position |
+| Long-press | Right-click at cursor | Right-click touched position |
+| Two-finger drag | Scroll | Scroll |
+| Pinch | Zoom video | Zoom video |
+| Drag while zoomed | Pan video | Pan video |
+
+The monitor button appears when multiple displays are available. The keyboard button opens the compose bar and shortcut strip. The red power button disconnects immediately.
+
+## Repository structure
+
+```text
+mobile-remote/
+|-- apps/
+|   |-- desktop-agent/
+|   |   |-- native/                 # C# SendInput helper
+|   |   |-- resources/              # Icons and compiled helper
+|   |   `-- src/
+|   |       |-- main/                # Electron lifecycle, signaling, IPC
+|   |       |-- preload/             # Restricted renderer bridge
+|   |       `-- renderer/            # Desktop UI and WebRTC host
+|   `-- mobile/
+|       |-- app/                     # Expo Router screens
+|       |-- features/                # Connection and remote UI
+|       |-- services/                # Signaling, WebRTC, input
+|       `-- store/                   # Session state machine
+|-- packages/protocol/               # Shared schemas, types, constants
+|-- docs/                            # User and developer guides
+|-- PLAN.md
+`-- pnpm-workspace.yaml
+```
+
+Generated APKs, signature sidecars, native Android projects, signing keys, dependencies, and packaged desktop builds are excluded from Git.
+
+## Development
+
+### Requirements
+
+- Node.js 22+
+- pnpm 9+
+- Windows 10/11
+- .NET Framework C# compiler
+- Android Studio and Android SDK
+- JDK 17+
+- Android NDK `27.1.12297006`
+
+### Common commands
+
+Run from the repository root:
+
+```powershell
+pnpm install
+pnpm dev:desktop       # Start the Electron agent
+pnpm build:desktop     # Build Electron bundles
+pnpm typecheck         # Type-check all workspaces
+pnpm test              # Run Vitest tests
+```
+
+Build the native helper and portable desktop application:
+
+```powershell
+pnpm --filter perch-agent build:native
+pnpm --filter perch-agent dist
+```
+
+The portable executable is written to:
 
 ```text
 apps/desktop-agent/release/win-unpacked/Perch.exe
 ```
 
-It's portable: copy that `win-unpacked` folder anywhere and double-click `Perch.exe`. During development the agent instead runs from source via `pnpm dev`.
+Build the optional installer and portable artifact:
 
-## Quick start (laptop already built)
-
-1. On the laptop, start **Perch** (run `Perch.exe`, or `pnpm dev` from source). Its window should say `Listening on 0.0.0.0:43120`.
-2. Allow the port through Windows Firewall once, in an **Administrator** PowerShell:
-   ```powershell
-   New-NetFirewallRule -DisplayName "Perch Agent" -Direction Inbound -LocalPort 43120 -Protocol TCP -Action Allow
-   ```
-3. Find the laptop's IP: run `ipconfig` and note the **IPv4 Address** of your active Wi-Fi/Ethernet adapter (e.g. `192.168.1.20`).
-4. Install `perch.apk` on the phone and open **Perch**.
-5. Make sure the phone is on the **same Wi-Fi**, enter the laptop IP and port `43120`, and tap **Connect**.
-
-Full step-by-step with screenshots of each control is in the **[User Guide](docs/USER_GUIDE.md)**.
-
-## Repository layout
-
-```text
-mobile-remote/
-├── apps/
-│   ├── desktop-agent/     Electron tray app (capture, WebRTC host, signaling, input)
-│   │   ├── native/        InputHelper.cs → compiled to resources/input-helper.exe
-│   │   └── src/{main,preload,renderer}
-│   └── mobile/            React Native + Expo Router Android app
-│       ├── app/           routes (connect screen, remote screen)
-│       ├── features/      feature-scoped components (connection, remote)
-│       └── services/      signaling, webrtc, input
-├── packages/
-│   └── protocol/          shared Zod schemas + types for every message
-├── docs/                  USER_GUIDE.md, BUILD.md
-├── PLAN.md                the full implementation plan
-└── perch.apk      latest built Android app
+```powershell
+pnpm --filter perch-agent dist:installer
 ```
 
-## Roadmap
+The Windows executable is not Authenticode-signed, so SmartScreen may warn on first launch.
 
-Not built yet, roughly in priority order:
+### Android
 
-- **Persistent device pairing** — the PIN protects each session, but pairing keys (so a trusted phone reconnects without re-entering the PIN, and can be revoked) are still to come.
-- **Internet access via Tailscale** — use it away from home / on mobile data.
-- **Paste from phone** — send phone clipboard text into a laptop field.
-- **Connection-quality indicator** — live fps / latency on the phone.
-- **Desktop audio** — stream system sound (needs Windows loopback capture).
-- **Pairing & reconnection hardening** — device keys, auto-reconnect on network change.
-- **Packaging** — Windows installer, start-with-Windows, signed APK.
+Generate and run the native Android project:
 
-## Security notes
+```powershell
+cd apps/mobile
+pnpm prebuild
+pnpm android
+```
 
-- **Pairing PIN**: the agent shows a 6-digit PIN in its window (persisted across restarts). A phone must present it to connect, and only an authenticated connection can start or take over a session. This keeps a random LAN device from controlling the machine.
-- Plain `ws://` signaling is acceptable **only** because it stays on your LAN. Do not expose port `43120` to the internet; the internet path will use `wss://` + Tailscale.
-- The agent injects input at your normal user privilege. It cannot control the lock screen, UAC prompts, or apps running as Administrator. Keep the laptop **awake and unlocked** during a session.
+Build a release APK:
+
+```powershell
+cd apps/mobile/android
+$env:EXPO_USE_METRO_WORKSPACE_ROOT = "1"
+./gradlew.bat assembleRelease
+```
+
+The Android project and signing material are ignored. Keep the release keystore private and back it up securely; future Android updates must use the same key. See [docs/BUILD.md](docs/BUILD.md) for complete build details.
+
+## Security model
+
+Perch controls an unlocked Windows session, so its network boundary matters.
+
+- Authentication is required before a socket can start or replace a session.
+- Failed PIN attempts are rate-limited by source IP.
+- Unauthenticated WebSocket payloads are size-limited.
+- Session UUIDs bind signaling and input to the active session.
+- Electron uses context isolation, sandboxing, and a narrow preload API.
+- Control messages are schema-validated before native input injection.
+- Input runs with the current user's privileges and cannot control UAC prompts, the lock screen, or elevated applications.
+
+Current security limitations:
+
+- Signaling uses plain `ws://`; an attacker who can monitor the LAN could observe the PIN.
+- The PIN persists until its local data file is removed.
+- Perch is intended only for a trusted private network.
+- Port `43120` must never be forwarded directly to the public internet.
+
+## Artifact policy
+
+Do not commit APKs, `.idsig` files, release keystores, `.env` files, native generated projects, dependencies, or packaged builds. Publish installers through a release page or artifact store, and store the Android signing key separately.
+
+## Known limitations and roadmap
+
+- Automatic reconnection after network changes.
+- Persistent trusted-device identities and revocation.
+- Tailscale-based remote access with encrypted signaling.
+- Phone-to-desktop clipboard synchronization.
+- Live latency, bitrate, and frame-rate diagnostics.
+- Windows loopback audio.
+- Signed Windows installer and automated releases.
+- Better pointer mapping across monitors with mixed display scaling.
+
+## Testing
+
+Tests currently cover protocol schema validation, normalized coordinate mapping, and video letterbox calculations.
+
+Run before committing:
+
+```powershell
+pnpm typecheck
+pnpm test
+pnpm build:desktop
+```
+
+Physical-device testing is still required for WebRTC streaming, gestures, monitor switching, Android keyboard behavior, and Windows input injection.
 
 ## License
 
-Personal project; no license granted yet.
+This is a personal project. No open-source license has been granted. Until one is added, the source is viewable but not automatically licensed for reuse, modification, or redistribution.

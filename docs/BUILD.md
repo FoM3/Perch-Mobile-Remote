@@ -81,7 +81,7 @@ The Electron window opens and the tray icon appears. `Start capture preview` in 
 pnpm dist            # electron-vite build + electron-builder --dir
 ```
 
-Output: `apps/desktop-agent/release/win-unpacked/Perch.exe` — the runnable app. It's portable: copy the whole `win-unpacked` folder anywhere and run `Perch.exe`.
+Output: `apps/desktop-agent/release/win-unpacked/Perch.exe`, the runnable app. It's portable: copy the whole `win-unpacked` folder anywhere and run `Perch.exe`.
 
 **Optional NSIS installer:**
 
@@ -103,7 +103,7 @@ npx expo prebuild --platform android --no-install
 ```
 
 This regenerates `android/`. Two project-specific config plugins re-apply automatically:
-- `plugins/withMonorepoBundleRoot.js` — points the Gradle JS bundle root at the workspace root.
+- `plugins/withMonorepoBundleRoot.js`: points the Gradle JS bundle root at the workspace root.
 - the workspace-root `app.json` sets `extra.router.root` so expo-router finds the routes.
 
 **b. Build the APK.** You **must** set `EXPO_USE_METRO_WORKSPACE_ROOT=1` for the release JS bundle to resolve in this monorepo:

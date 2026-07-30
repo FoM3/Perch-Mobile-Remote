@@ -112,8 +112,7 @@ export function startSignalingServer(signalingHandlers: SignalingHandlers): void
   });
 
   server.on("connection", (socket, request) => {
-    // A socket must authenticate with the pairing PIN before it can control or
-    // take over. Unauthenticated connections cannot touch an active session.
+    // A socket must authenticate with the pairing PIN before it can control or take over a session.
     const ip = request.socket.remoteAddress ?? "unknown";
     let authed = false;
     let invalidCount = 0;

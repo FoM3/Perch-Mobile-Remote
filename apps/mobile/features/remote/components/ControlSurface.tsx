@@ -178,9 +178,7 @@ export function ControlSurface({
     .maxPointers(1)
     .onChange((e) => onOnePan(e.x, e.y, e.changeX, e.changeY));
 
-  // Two fingers always scroll the desktop, at any zoom level. Each delta is sent
-  // exactly once: the previous delta on the fast channel, the final one on the
-  // reliable channel, so the gesture end is never lost and never double-applied.
+  // Two-finger scroll at any zoom; each delta sent exactly once (fast channel while moving, final one reliable).
   const twoPan = Gesture.Pan()
     .runOnJS(true)
     .minPointers(2)

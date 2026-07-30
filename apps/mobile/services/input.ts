@@ -8,8 +8,7 @@ interface SendChannel {
 
 export type MouseButton = "left" | "right" | "middle";
 
-// Splits input across the two channels: reliable for discrete actions, the
-// unreliable pointer channel for the high-rate move/scroll stream.
+// Splits input across the two channels: reliable for discrete actions, unreliable for the high-rate move/scroll stream.
 export class InputSender {
   constructor(
     private readonly reliable: SendChannel | null,

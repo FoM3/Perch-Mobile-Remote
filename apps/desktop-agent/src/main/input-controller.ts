@@ -2,8 +2,7 @@ import { spawn, ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resourcePath } from "./resources";
 
-// Child-process input helper: one JSON control message per stdin line, injected
-// via Windows SendInput. Isolated from the agent for debuggability and safety.
+// Child-process input helper: one JSON control message per stdin line, injected via Windows SendInput.
 let helper: ChildProcess | null = null;
 let enabled = false;
 

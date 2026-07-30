@@ -5,8 +5,7 @@ export interface VideoRect {
   height: number;
 }
 
-// The video is rendered objectFit="contain", so it is letterboxed inside the
-// view. Compute the actual video rectangle from the container and aspect ratio.
+// The video is letterboxed (objectFit="contain"); compute its actual rectangle from container and aspect.
 export function videoRect(containerW: number, containerH: number, aspect: number): VideoRect {
   if (containerW <= 0 || containerH <= 0) return { offsetX: 0, offsetY: 0, width: containerW, height: containerH };
   const containerAspect = containerW / containerH;

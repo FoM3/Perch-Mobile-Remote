@@ -83,7 +83,7 @@ The floating round buttons on the **left** are your controls. The desktop fills 
 
 | | **Trackpad mode** (mouse icon) | **Touch mode** (pointer icon) |
 |---|---|---|
-| Move cursor | drag one finger (like a laptop trackpad) | — |
+| Move cursor | drag one finger (like a laptop trackpad) | n/a |
 | Click | tap anywhere | tap lands exactly where you touch |
 | Right-click | long-press | long-press |
 | Double-click | double-tap | double-tap |

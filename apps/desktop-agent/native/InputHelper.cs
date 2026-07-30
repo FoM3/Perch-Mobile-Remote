@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Web.Script.Serialization;
 
-// Reads one JSON control message per stdin line and injects it via SendInput.
-// The desktop agent validates every message with Zod before it reaches here.
+// Reads one Zod-validated JSON control message per stdin line and injects it via SendInput.
 class InputHelper
 {
     [StructLayout(LayoutKind.Sequential)]
@@ -83,9 +82,7 @@ class InputHelper
         SendInput(1, new[] { inp }, Marshal.SizeOf(typeof(INPUT)));
     }
 
-    // Normalized 0..1 within the captured monitor maps to absolute mouse space.
-    // Primary: the simple 0..65535 primary mapping. Other monitors: place the point
-    // inside that monitor's bounds and map across the whole virtual desktop.
+    // Map normalized 0..1 monitor coords to absolute mouse space (0..65535 for primary, virtual desktop for others).
     static void MoveAbsolute(double x, double y)
     {
         if (monPrimary || monW <= 0 || monH <= 0)
